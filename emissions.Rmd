@@ -1,0 +1,143 @@
+---
+title: "greenHouse Emissions"
+author: "Temi Adejumobi"
+date: '2022-06-10'
+output: html_document
+---
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F)
+```
+```{r}
+library(readr)
+library(leaflet)
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(knitr)
+
+options(scipen=999)
+
+ghg <- read_csv('https://raw.githubusercontent.com/ericmkeen/capstone/master/co2.csv')
+# Greenhouse gas emissions by country-year-sector, 1990 - 2018
+sectors <- read_csv('https://raw.githubusercontent.com/ericmkeen/capstone/master/co2_sectors.csv')
+
+
+```
+
+
+# Top 5 CO2 Emitters Present Day
+```{r}
+ghgtop5 <- ghg %>%
+  filter(Year == 2020) %>%
+  arrange(-`Annual CO2 emissions (zero filled)`) %>%
+  filter(!is.na(Code), Entity!='World') %>%
+  head(5) %>%
+  rename(CO2= `Annual CO2 emissions (zero filled)`) %>%
+  mutate(CO2=CO2/1000000)
+order=ghgtop5$Entity
+ggplot(data=ghgtop5, aes(x=Entity, y= CO2, fill=CO2)) +
+  geom_col() +
+  scale_x_discrete(limits=order) +
+  theme_clean() +
+  labs(title = 'Top 5 CO2 Emitters',
+       subtitle = 'Year of 2020',
+       caption = 'DataLab 2022',
+       x='Country', y='CO2 Emissions in Millions')
+```
+
+# Top 5 CO2 Emitters Over Time
+## 1990-2018
+
+```{r}
+sectors_filtered<-sectors %>%
+  group_by(entity,year) %>%
+  summarise(total=sum(co2)/100000000) %>%
+  ungroup()
+df<-sectors_filtered %>%
+  group_by(year) %>%
+  filter( ! entity %in% c("World", "European Union (27)" )) %>%
+  slice_max(order_by = total, n=5)
+ggplot(data = df, aes(x=year, y=total))+
+  geom_line()+
+  geom_area(fill="darkblue", alpha=0.5)+
+  labs(title = "Top 5 CO2 Emitters", x="Total Number of CO2 Emission (Millions)", y="Country")+
+  facet_wrap(~entity,scales = "free")+
+  theme_clean()
+```
+
+# Top 5 Emitters by Sector
+### (All Time)
+
+```{r}
+df.2<-sectors %>%
+  group_by(sector, entity) %>%
+  summarise(total=sum(co2)/100000000) %>%
+  ungroup()
+ sec<-df.2 %>%
+   group_by(sector) %>%
+    filter( ! entity %in% c("World", "European Union (27)" ))%>%
+   slice_max(order_by = total, n=5)
+ ggplot(data = sec, aes(x=entity, y=total, fill=entity))+
+  geom_col()+
+  labs(title = "Top 5 CO2 Emitters by Sector",y="Total Number of CO2 Emission (Millions)", x="Country")+
+  facet_wrap(~sector,scales = "free", labeller = labeller(sector = label_wrap_gen(20)))+
+  coord_flip()+
+  theme_clean()+
+  theme(legend.position = "none")
+```
+
+```{r}
+ghg <- read_csv('https://raw.githubusercontent.com/ericmkeen/capstone/master/co2.csv')
+ghg <- ghg %>%
+  rename( AnnualCO2 = `Annual CO2 emissions (zero filled)` ) %>%
+  filter( Year >= 1990)
+# Greenhouse gas emissions by country-year-sector, 1990 - 2018
+sectors <- read_csv('https://raw.githubusercontent.com/ericmkeen/capstone/master/co2_sectors.csv')
+```
+
+# Lowest 5 CO2 Emitters Present Day
+
+```{r}
+ghg.present <- ghg %>%
+  filter( Year == max(ghg$Year), !is.na(Code), Entity != "World", AnnualCO2 != 0 ) %>%
+  arrange(-AnnualCO2)
+ghg.lo5 <- ghg.present %>%
+  tail(5) %>%
+  mutate( AnnualCO2 = AnnualCO2/10^6)
+lo5=ghg.lo5$Entity
+ggplot( ghg.lo5 ) +
+  geom_col( aes(x=Entity, y=AnnualCO2, fill=AnnualCO2), color='black' ) +
+  scale_x_discrete(limits=lo5) +
+  theme_clean() +
+  theme( legend.position='none' ) +
+  labs(title="Lowest 5 CO2 Emitters", subtitle="Year of 2020",
+       x="Country", y="CO2 Emissions",
+       caption="DataLab 2022")
+```
+
+# Trends in Emissions Over Time
+
+```{r, out.width="48%"}
+sector.recent <- sectors %>%
+  filter( year >= max(sectors$year)-3, entity != "World", co2 != 0,
+          entity != "European Union (27)")
+MAX <- max(sector.recent$co2)
+for(y in min(sector.recent$year):max(sector.recent$year) ){
+  top4 <- sector.recent %>%
+    filter(year == y) %>%
+    group_by(entity) %>%
+    summarize( totalCO2 = sum(co2) ) %>%
+    arrange(-totalCO2) %>% head(4)
+  top4 <- top4$entity
+  year4 <- sector.recent %>% filter(year == y, entity %in% top4)
+  TITLE <- paste("Carbon Emissions in",y)
+  print(
+  ggplot( year4 ) +
+    geom_col( aes(x=sector, y=co2, fill=co2), position='dodge', color='black' ) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    ylim(0, MAX) +
+    facet_wrap(~entity) +
+    labs(title=TITLE)
+  )
+}
+```

@@ -1,0 +1,11 @@
+name: "Temi Adejumobi"
+output_dir: "."
+navbar:
+  title: "Website"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "About"
+      href: about.html
+    - text: "Emission Analysis"
+      href: emissions.html
